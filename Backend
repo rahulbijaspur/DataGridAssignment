@@ -1,0 +1,74 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+
+const app = express();
+const port = 5000;
+
+app.use(cors());
+app.use(express.json());
+
+const mongoURI = 'mongodb://127.0.0.1:27017/your_database_name';
+
+mongoose.connect(mongoURI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+})
+.then(() => console.log('MongoDB Connected'))
+.catch(err => console.log('MongoDB Connection Error:', err));
+
+// Data Schema and Model (same as before)
+const dataSchema = new mongoose.Schema({ /* ... */ });
+const DataModel = mongoose.model('Data', dataSchema, 'your_collection_name');
+
+// API Routes (with pagination)
+app.get('/api/data', async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1; 
+        const pageSize = parseInt(req.query.pageSize) || 10; /
+
+        const totalDocuments = await DataModel.countDocuments({}); 
+        const totalPages = Math.ceil(totalDocuments / pageSize);
+
+        const data = await DataModel.find({})
+            .skip((page - 1) * pageSize) // Skip documents for previous pages
+            .limit(pageSize); // Limit documents per page
+
+        res.json({
+            data,
+            currentPage: page,
+            totalPages,
+            totalDocuments
+        });
+    } catch (err) {
+        console.error("Error fetching data:", err);
+        res.status(500).json({ error: 'Failed to fetch data' });
+    }
+});
+
+app.post('/api/data', async (req, res) => {
+    try {
+        const newData = new DataModel(req.body);
+        const savedData = await newData.save();
+        res.status(201).json(savedData);
+    } catch (err) {
+        console.error("Error saving data:", err);
+        res.status(500).json({ error: 'Failed to save data' });
+    }
+});
+
+
+app.delete('/api/data/:id', async (req, res) => {
+    try {
+      const deletedData = await DataModel.findByIdAndDelete(req.params.id);
+      if (!deletedData) {
+        return res.status(404).json({ error: 'Data not found' });
+      }
+      res.json({ message: 'Data deleted' });
+    } catch (err) {
+      console.error("Error deleting data:", err);
+      res.status(500).json({ error: 'Failed to delete data' });
+    }
+  });
+
+app.listen(port, () => console.log(`Server listening on port ${port}`));
